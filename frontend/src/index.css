@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   Analytics Studio — Single Source of Truth for Design Tokens (Tailwind v4)
+   Defined per w6uiux.pdf Sections 5 & 32
+   ========================================================================== */
+
+@theme {
+  --color-background: #000000;
+  --color-surface: #0A0A0A;
+  --color-card: #111111;
+  --color-card-foreground: #FAFAFA;
+  --color-elevated: #18181B;
+  --color-border: #27272A;
+  --color-primary: #3B82F6;
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-text-primary: #FAFAFA;
+  --color-text-secondary: #A1A1AA;
+  --color-text-muted: #71717A;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --font-sans: 'Geist Sans', 'Geist', 'Inter', sans-serif;
+}
+
+:root {
+  --background: 0 0% 0%;
+  --surface: 0 0% 4%;
+  --card: 0 0% 6.7%;
+  --card-foreground: 0 0% 98%;
+  --elevated: 240 3.7% 10%;
+  --border: 240 3.7% 15.7%;
+  --primary: 217.2 91.2% 59.8%;
+  --success: 142.1 70.6% 45.3%;
+  --warning: 37.7 92.1% 50.2%;
+  --danger: 0 84.2% 60.2%;
+  --text-primary: 0 0% 98%;
+  --text-secondary: 240 5% 64.9%;
+  --text-muted: 240 3.8% 46.1%;
+  --radius: 12px;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

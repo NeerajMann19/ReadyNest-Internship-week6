@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+pandas
+pydantic>=2
+python-dotenv
+python-multipart
+scikit-learn==1.6.1
+google-genai
+
+
