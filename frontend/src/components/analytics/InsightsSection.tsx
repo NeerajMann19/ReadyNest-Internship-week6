@@ -1,7 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { apiClient } from '../../api/client';
-import type { Insight } from '../../types';
-import { Lightbulb, AlertTriangle, TrendingUp, ShieldAlert, Sparkles, RefreshCw, CheckCircle2 } from 'lucide-react';
+import type { Insight, AdvisorResponse } from '../../types';
+import {
+  Lightbulb,
+  AlertTriangle,
+  TrendingUp,
+  ShieldAlert,
+  Sparkles,
+  RefreshCw,
+  CheckCircle2,
+  BrainCircuit,
+  X,
+} from 'lucide-react';
 
 interface InsightsSectionProps {
   sessionId: string | null;
@@ -11,6 +21,11 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ sessionId }) =
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Executive Advisor explanation state per insightId
+  const [explanations, setExplanations] = useState<
+    Record<string, { loading: boolean; text?: string; error?: string }>
+  >({});
 
   const fetchInsights = async () => {
     if (!sessionId) return;
@@ -30,6 +45,49 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ sessionId }) =
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExplain = async (insightId: string) => {
+    if (!sessionId) return;
+
+    // Toggle off if already showing text
+    if (explanations[insightId] && !explanations[insightId].loading && explanations[insightId].text) {
+      setExplanations((prev) => {
+        const copy = { ...prev };
+        delete copy[insightId];
+        return copy;
+      });
+      return;
+    }
+
+    setExplanations((prev) => ({
+      ...prev,
+      [insightId]: { loading: true },
+    }));
+
+    try {
+      const response = await apiClient.post<AdvisorResponse>(`/dataset/${sessionId}/advisor`, {
+        target_id: insightId,
+      });
+      setExplanations((prev) => ({
+        ...prev,
+        [insightId]: { loading: false, text: response.data.explanation },
+      }));
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Failed to fetch executive explanation.';
+      setExplanations((prev) => ({
+        ...prev,
+        [insightId]: { loading: false, error: msg },
+      }));
+    }
+  };
+
+  const closeExplanation = (insightId: string) => {
+    setExplanations((prev) => {
+      const copy = { ...prev };
+      delete copy[insightId];
+      return copy;
+    });
   };
 
   useEffect(() => {
@@ -62,7 +120,6 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ sessionId }) =
           <RefreshCw className="w-5 h-5 text-primary animate-spin" />
         </div>
 
-        {/* Skeleton Loader Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[1, 2, 3, 4].map((idx) => (
             <div key={idx} className="p-5 bg-card border border-border rounded-xl space-y-4 animate-pulse">
@@ -176,7 +233,7 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ sessionId }) =
             key={insight.id}
             className="p-5 bg-card border border-border rounded-xl space-y-4 hover:border-primary/40 transition-colors flex flex-col justify-between"
           >
-            {/* Top Badges */}
+            {/* Top Badges & Explain Action Button */}
             <div className="space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
@@ -196,12 +253,25 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ sessionId }) =
                     {insight.severity} Severity
                   </span>
                 </div>
-                <span
-                  className="text-[11px] font-mono font-medium text-text-muted bg-surface px-2 py-1 rounded border border-border"
-                  title="Model confidence score"
-                >
-                  {(insight.confidence * 100).toFixed(0)}% Confidence
-                </span>
+
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-[11px] font-mono font-medium text-text-muted bg-surface px-2 py-1 rounded border border-border"
+                    title="Model confidence score"
+                  >
+                    {(insight.confidence * 100).toFixed(0)}% Confidence
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => handleExplain(insight.id)}
+                    className="px-2.5 py-1 rounded-md bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-xs font-medium flex items-center gap-1.5 transition-colors"
+                    title="Get executive business explanation from AI Advisor"
+                  >
+                    <BrainCircuit className="w-3.5 h-3.5" />
+                    <span>Explain</span>
+                  </button>
+                </div>
               </div>
 
               {/* Title & Description */}
@@ -214,6 +284,39 @@ export const InsightsSection: React.FC<InsightsSectionProps> = ({ sessionId }) =
                 </p>
               </div>
             </div>
+
+            {/* Contextual Executive Advisor Brief Side/Bottom Box */}
+            {explanations[insight.id] && (
+              <div className="p-3.5 bg-surface/90 border border-primary/30 rounded-lg space-y-2 text-xs relative animate-fadeIn shadow-sm">
+                <div className="flex items-center justify-between border-b border-border/40 pb-2">
+                  <div className="flex items-center gap-1.5 font-semibold text-primary">
+                    <BrainCircuit className="w-4 h-4" />
+                    <span>Executive Advisor Brief</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => closeExplanation(insight.id)}
+                    className="text-text-muted hover:text-text-primary p-0.5 rounded hover:bg-elevated transition-colors"
+                    title="Close explanation"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {explanations[insight.id].loading ? (
+                  <div className="flex items-center gap-2 text-text-secondary py-2">
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-primary" />
+                    <span>Synthesizing executive brief...</span>
+                  </div>
+                ) : explanations[insight.id].error ? (
+                  <p className="text-danger py-1">{explanations[insight.id].error}</p>
+                ) : (
+                  <p className="text-text-primary leading-relaxed py-1 font-normal">
+                    {explanations[insight.id].text}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Grounded Evidence List */}
             {insight.evidence && Object.keys(insight.evidence).length > 0 && (

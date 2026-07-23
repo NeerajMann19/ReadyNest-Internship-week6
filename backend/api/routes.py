@@ -358,5 +358,72 @@ async def export_report(session_id: str):
         )
 
 
+class AdvisorRequest(BaseModel):
+    target_id: str = Field(..., description="Unique target identifier (e.g. insight.id)")
+
+
+from modules.advisor import generate_explanation
+
+
+@router.post("/dataset/{session_id}/advisor", summary="Generate Executive Advisor Explanation")
+async def explain_target(session_id: str, payload: AdvisorRequest):
+    """
+    Generates a 2-3 sentence executive business explanation for a target Insight object.
+    Caches results per (session_id, target_id) to avoid duplicate LLM calls.
+    Returns AdvisorResponse matching canonical schema {"explanation": "..."}.
+    """
+    if not session_id or not session_id.strip():
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"message": "Invalid session_id parameter.", "code": "INVALID_REQUEST"},
+        )
+
+    if not payload.target_id or not payload.target_id.strip():
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"message": "Invalid target_id parameter.", "code": "INVALID_REQUEST"},
+        )
+
+    session = storage.get_session(session_id)
+    if not session or not session.dataset:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"message": "Session or dataset not found.", "code": "SESSION_NOT_FOUND"},
+        )
+
+    target_id = payload.target_id.strip()
+
+    # 1. Storage Cache Check
+    cached_explanation = storage.get_advisor_explanation(session_id, target_id)
+    if cached_explanation is not None:
+        return cached_explanation.model_dump(by_alias=True)
+
+    # 2. Locate target Insight object
+    target_insight = None
+    if session.insights:
+        for ins in session.insights:
+            if ins.id == target_id:
+                target_insight = ins
+                break
+
+    if not target_insight:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"message": f"Target insight '{target_id}' not found.", "code": "TARGET_NOT_FOUND"},
+        )
+
+    # 3. Generate explanation (LLM with 12s timeout -> Fallback)
+    try:
+        advisor_resp = generate_explanation(target_insight)
+        storage.save_advisor_explanation(session_id, target_id, advisor_resp)
+        return advisor_resp.model_dump(by_alias=True)
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"message": f"Failed to generate advisor explanation: {str(e)}", "code": "INTERNAL_SERVER_ERROR"},
+        )
+
+
+
 
 

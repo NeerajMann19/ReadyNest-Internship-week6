@@ -14,6 +14,7 @@ import datetime
 import uuid
 from typing import Any, Optional
 from models import (
+    AdvisorResponse,
     Analytics,
     Dataset,
     Decision,
@@ -39,6 +40,10 @@ _PREDICTION_CACHE: dict[tuple[str, str], Prediction] = {}
 # Cache assumes the uploaded dataset is immutable within a session.
 # If in-place dataset editing is ever added, this cache key must be extended to include a dataset version/hash.
 _DECISION_CACHE: dict[tuple[str, float], Decision] = {}
+
+# In-memory advisor explanation cache mapping (session_id, target_id) -> AdvisorResponse
+_ADVISOR_CACHE: dict[tuple[str, str], AdvisorResponse] = {}
+
 
 
 def invalidate_report_cache(session_id: str) -> None:
@@ -198,3 +203,14 @@ def clear_session(session_id: str) -> bool:
         del _SESSIONS[session_id]
         return True
     return False
+
+
+def get_advisor_explanation(session_id: str, target_id: str) -> Optional[AdvisorResponse]:
+    """Retrieves cached AdvisorResponse explanation for given session_id and target_id."""
+    return _ADVISOR_CACHE.get((session_id, target_id))
+
+
+def save_advisor_explanation(session_id: str, target_id: str, advisor_resp: AdvisorResponse) -> None:
+    """Saves AdvisorResponse explanation object into advisor cache."""
+    _ADVISOR_CACHE[(session_id, target_id)] = advisor_resp
+
