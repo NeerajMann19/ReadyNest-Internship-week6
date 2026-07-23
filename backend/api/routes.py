@@ -304,4 +304,59 @@ async def simulate_decision(session_id: str, body: DecisionRequest):
         )
 
 
+from fastapi import Response
+from modules.report import generate_report
+
+
+@router.post("/dataset/{session_id}/report", summary="Generate and Download Executive PDF Report")
+async def export_report(session_id: str):
+    """
+    Generates and returns the compiled Executive PDF Report (application/pdf) for the active session.
+    Catches missing GTK3/Pango system C-libraries and returns clean HTTP 503 Service Unavailable.
+    """
+    if not session_id or not session_id.strip():
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"message": "Invalid session_id parameter.", "code": "INVALID_REQUEST"},
+        )
+
+    try:
+        pdf_bytes, filename = generate_report(session_id)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except KeyError as ke:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"message": str(ke).strip("'"), "code": "SESSION_NOT_FOUND"},
+        )
+    except ValueError as ve:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"message": str(ve), "code": "ANALYTICS_REQUIRED"},
+        )
+    except RuntimeError as re:
+        if "WEASYPRINT_DEPENDENCY_MISSING" in str(re):
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={
+                    "message": "PDF rendering dependencies (GTK3 / Pango / Cairo C-libraries) are unavailable on the server OS.",
+                    "code": "WEASYPRINT_DEPENDENCY_MISSING",
+                    "details": "On Windows, install GTK3 Runtime (GTK3-Runtime-Win64.exe) or deploy on Linux where Pango/Cairo are natively installed.",
+                },
+            )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"message": f"Failed to compile report PDF: {str(re)}", "code": "INTERNAL_SERVER_ERROR"},
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"message": f"An error occurred while generating report PDF: {str(e)}", "code": "INTERNAL_SERVER_ERROR"},
+        )
+
+
+
 
